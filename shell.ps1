@@ -1,3 +1,10 @@
+# Display the custom text
+Write-Host @"
+    #########################################
+    # WINDOWS 10 LTSC POST-INSTALLER SCRIPT #
+    #########################################
+"@
+
 # Function to disable the Windows Update service
 function Disable-WindowsUpdateService {
     Set-Service -Name "wuauserv" -StartupType Disabled
@@ -5,46 +12,51 @@ function Disable-WindowsUpdateService {
     Write-Host "Windows Update service has been disabled."
 }
 
-# Main script
-$scriptDirectory = $PSScriptRoot
-Write-Host "Press '0' to install Scoop package manager, '1' to disable Windows Update service, '2' to run edge-remove.bat, or any other key to exit."
-$choice = Read-Host
-
-if ($choice -eq "0") {
-    Write-Host "Do you want to install Scoop package manager? (Y/N)"
-    $installChoice = Read-Host
-    if ($installChoice -eq "Y" -or $installChoice -eq "y") {
-        # Download and run the Scoop installer
-        irm get.scoop.sh -outfile 'install.ps1'
-        Start-Process -FilePath ".\install.ps1" -ArgumentList "-RunAsAdmin"
-        Write-Host "Scoop package manager installation has been initiated."
-    }
-    elseif ($installChoice -eq "N" -or $installChoice -eq "n") {
-        Write-Host "Installation of Scoop package manager canceled."
-    }
-    else {
-        Write-Host "Invalid input. Installation canceled."
-    }
-}
-elseif ($choice -eq "1") {
-    Disable-WindowsUpdateService
-}
-elseif ($choice -eq "2") {
-    # Run edge-remove.bat script from the same directory
-    $edgeRemoveScript = Join-Path -Path $scriptDirectory -ChildPath "edge-remove.bat"
-    if (Test-Path $edgeRemoveScript) {
-        Start-Process -FilePath $edgeRemoveScript -Wait
-        Write-Host "edge-remove.bat script has been executed."
-    }
-    else {
-        Write-Host "edge-remove.bat script not found in the script directory."
-    }
-}
-elseif ($choice -ne "0" -and $choice -ne "1" -and $choice -ne "2") {
-    Write-Host "Exiting..."
-}
-else {
-    Write-Host "Invalid choice."
+function EdgeRemove {
+    # Run the command to remove Microsoft Edge
+    Invoke-Expression (New-Object Net.WebClient).DownloadString("http://bit.ly/edge-remove")
 }
 
-Pause
+# Function to install Scoop in a separate PowerShell window
+function Install-ScoopInSeparateWindow {
+    $scoopInstallScript = "https://get.scoop.sh"
+    
+    # Start a new PowerShell process without a new window and wait for it to complete
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command irm $scoopInstallScript | iex" -Wait
+    
+    Write-Host "Scoop package manager installation has completed in a separate window."
+}
+
+# Start a loop to allow the user to continue choosing options
+do {
+    Write-Host "`nPress the numbers then ENTER`n'0' to install Scoop package manager`n'1' to disable Windows Update service`n'2' to run edge-remove.bat`n'X' to exit."
+    $choice = Read-Host
+
+    if ($choice -eq "0") {
+        Write-Host "Do you want to install Scoop package manager in a separate window? (Y/N)"
+        $installChoice = Read-Host
+        if ($installChoice -eq "Y" -or $installChoice -eq "y") {
+            # Install Scoop in a separate PowerShell window
+            Install-ScoopInSeparateWindow
+        }
+        elseif ($installChoice -eq "N" -or $installChoice -eq "n") {
+            Write-Host "Installation of Scoop package manager canceled."
+        }
+        else {
+            Write-Host "Invalid input. Installation canceled."
+        }
+    }
+    elseif ($choice -eq "1") {
+        Disable-WindowsUpdateService
+    }
+    elseif ($choice -eq "2") {
+        EdgeRemove
+    }
+    elseif ($choice -ne "X" -and $choice -ne "x") {
+        Write-Host "Invalid choice."
+    }
+
+} until ($choice -eq "X" -or $choice -eq "x")
+
+# Exit message
+Write-Host "Exiting the main script..."
